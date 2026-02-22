@@ -204,27 +204,32 @@ def render():
             if investment_amount > 0:
                 best_ticker = rec["recommended_ticker"]
                 best_price = get_price(best_ticker)
-                shares_to_buy = int(investment_amount / best_price) if best_price > 0 else 0
-                leftover = investment_amount - (shares_to_buy * best_price)
                 
-                weekly_div_income = shares_to_buy * st.session_state.holdings[best_ticker]["div"]
-                monthly_div_income = weekly_div_income * 52 / 12
-                annual_div_income = weekly_div_income * 52
-                
-                st.markdown(f"""
-                <div style="background: #1e293b; padding: 1.5rem; border-radius: 1rem; border: 2px solid #22c55e;">
-                    <div style="font-weight: 700; margin-bottom: 1rem;">💵 Investment Breakdown:</div>
-                    <div style="line-height: 2;">
-                        <strong>Buy:</strong> {shares_to_buy} shares of {best_ticker}<br>
-                        <strong>Cost:</strong> ${shares_to_buy * best_price:.2f}<br>
-                        <strong>Leftover:</strong> ${leftover:.2f}<br>
+                # Handle None price
+                if best_price and best_price > 0:
+                    shares_to_buy = int(investment_amount / best_price)
+                    leftover = investment_amount - (shares_to_buy * best_price)
+                    
+                    weekly_div_income = shares_to_buy * st.session_state.holdings[best_ticker]["div"]
+                    monthly_div_income = weekly_div_income * 52 / 12
+                    annual_div_income = weekly_div_income * 52
+                    
+                    st.markdown(f"""
+                    <div style="background: #1e293b; padding: 1.5rem; border-radius: 1rem; border: 2px solid #22c55e;">
+                        <div style="font-weight: 700; margin-bottom: 1rem;">💵 Investment Breakdown:</div>
+                        <div style="line-height: 2;">
+                            <strong>Buy:</strong> {shares_to_buy} shares of {best_ticker}<br>
+                            <strong>Cost:</strong> ${shares_to_buy * best_price:.2f}<br>
+                            <strong>Leftover:</strong> ${leftover:.2f}<br>
                         <hr style="margin: 1rem 0; opacity: 0.3;">
                         <strong>Weekly income added:</strong> <span style="color: #22c55e;">${weekly_div_income:.2f}</span><br>
                         <strong>Monthly income added:</strong> <span style="color: #22c55e;">${monthly_div_income:.2f}</span><br>
                         <strong>Annual income added:</strong> <span style="color: #22c55e;">${annual_div_income:.2f}</span>
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                else:
+                    st.error("⚠️ Could not fetch current price. Please try again later.")
         
         st.divider()
         st.markdown("### 🔄 Auto-Rebalancer Analysis")

@@ -13,12 +13,13 @@ def render():
     
     for ticker in ETF_LIST:
         price = get_price(ticker)
+        price_display = f"${price:.2f}" if price else "N/A"
         
         st.markdown(f"""
         <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155; border-radius: 1rem; padding: 1.5rem; margin-bottom: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #334155;">
                 <div style="font-size: 1.8rem; font-weight: 700; color: #3b82f6;">{ticker}</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #22c55e;">${price:.2f}</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #22c55e;">{price_display}</div>
             </div>
         """, unsafe_allow_html=True)
         
@@ -43,23 +44,28 @@ def render():
             )
         
         with col3:
+            # If price is None, use 0 as fallback
+            price_for_default = price if price else 0.0
             st.session_state.holdings[ticker]["cost_basis"] = st.number_input(
                 "Cost Basis per Share ($)",
                 min_value=0.0,
                 step=0.10,
                 format="%.2f",
-                value=st.session_state.holdings[ticker].get("cost_basis", price),
+                value=st.session_state.holdings[ticker].get("cost_basis", price_for_default),
                 key=f"cost_{ticker}_edit"
             )
         
         shares = st.session_state.holdings[ticker]["shares"]
         div = st.session_state.holdings[ticker]["div"]
-        cost_basis = st.session_state.holdings[ticker].get("cost_basis", price)
+        cost_basis = st.session_state.holdings[ticker].get("cost_basis", 0.0)
+        
+        # Use price if available, otherwise use cost_basis, otherwise 0
+        current_price = price if price else (cost_basis if cost_basis > 0 else 0.0)
         
         weekly = shares * div
         monthly = weekly * 52 / 12
         annual = weekly * 52
-        value = shares * price
+        value = shares * current_price
         yield_pct = (annual / value * 100) if value > 0 else 0
         
         cost_total = shares * cost_basis
