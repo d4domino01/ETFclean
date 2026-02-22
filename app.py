@@ -16,6 +16,17 @@ from utils.helpers import (
     calculate_current_metrics
 )
 
+from utils.persistence import (
+    load_holdings,
+    save_holdings,
+    load_settings,
+    save_settings,
+    load_price_history,
+    save_price_history,
+    get_last_saved_time,
+    clear_persistence
+)
+
 # Import all tab modules
 from tabs import (
     ai_command_center,
@@ -220,11 +231,19 @@ st.markdown("""
 # SESSION STATE INITIALIZATION
 # =====================================================
 if "holdings" not in st.session_state:
-    st.session_state.holdings = {
-        "QDTE": {"shares": 125, "div": 0.177, "cost_basis": 19.50},
-        "CHPY": {"shares": 63,  "div": 0.52, "cost_basis": 25.80},
-        "XDTE": {"shares": 84,  "div": 0.16, "cost_basis": 18.50},
-    }
+    # Try to load previously saved holdings
+    saved_holdings = load_holdings()
+    
+    if saved_holdings:
+        st.session_state.holdings = saved_holdings
+    else:
+        # Default holdings if no saved data
+        st.session_state.holdings = {
+            "QDTE": {"shares": 125, "div": 0.177, "cost_basis": 19.50},
+            "CHPY": {"shares": 63,  "div": 0.52, "cost_basis": 25.80},
+            "XDTE": {"shares": 84,  "div": 0.16, "cost_basis": 18.50},
+        }
+        save_holdings(st.session_state.holdings)
 
 if "cash" not in st.session_state:
     st.session_state.cash = 0.0
@@ -237,6 +256,9 @@ if "target_income" not in st.session_state:
 
 if "PORTFOLIO_LOCKED" not in st.session_state:
     st.session_state.PORTFOLIO_LOCKED = False
+
+if "price_history" not in st.session_state:
+    st.session_state.price_history = load_price_history() or {t: [] for t in ETF_LIST}
 
 if "snapshots" not in st.session_state:
     st.session_state.snapshots = []
@@ -387,6 +409,19 @@ with st.sidebar:
                         st.caption(f"Current: ${current_price:.2f}")
                     else:
                         st.caption("Current: N/A")
+                
+                # Auto-track price history
+                if current_price:
+                    if "price_history" not in st.session_state:
+                        st.session_state.price_history = {t: [] for t in ETF_LIST}
+                    
+                    today = datetime.now().strftime("%Y-%m-%d")
+                    if not st.session_state.price_history[ticker] or st.session_state.price_history[ticker][-1].get("date") != today:
+                        st.session_state.price_history[ticker].append({
+                            "date": today,
+                            "price": current_price,
+                            "timestamp": datetime.now().isoformat()
+                        })
 
 # =====================================================
 # MAIN HEADER
@@ -461,4 +496,33 @@ with tab9:
     snapshots.render()
 
 st.divider()
-st.caption("Income Strategy Engine v4.0 - AI Powered Edition • " + datetime.now().strftime("%b %d, %Y %I:%M %p"))
+
+# =====================================================
+# AUTO-SAVE ON EVERY RENDER
+# =====================================================
+save_holdings(st.session_state.holdings)
+save_price_history(st.session_state.price_history)
+
+# =====================================================
+# DATA PERSISTENCE INFO
+# =====================================================
+with st.expander("📂 Data & Persistence", expanded=False):
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.info(f"✅ **Last Saved:** {get_last_saved_time()}")
+        st.caption("Your settings, holdings, and prices are automatically saved on every refresh")
+    
+    with col2:
+        if st.button("🔄 Manually Save Now", use_container_width=True):
+            save_holdings(st.session_state.holdings)
+            save_price_history(st.session_state.price_history)
+            st.success("✅ Data saved!")
+        
+        if st.button("🗑️ Clear All Saved Data", use_container_width=True):
+            if clear_persistence():
+                st.warning("⚠️ All saved data cleared. Refresh to reset to defaults.")
+            else:
+                st.error("❌ Error clearing data")
+
+st.divider()
