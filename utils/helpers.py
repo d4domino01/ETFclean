@@ -112,8 +112,12 @@ def calculate_current_metrics():
     for ticker in ETF_LIST:
         shares = st.session_state.holdings[ticker]["shares"]
         div = st.session_state.holdings[ticker]["div"]
+        cost_basis = st.session_state.holdings[ticker].get("cost_basis", 0.0)
+        
+        # Use fetched price, fallback to cost_basis if fetch failed, default to 0
         price = prices[ticker]
-        cost_basis = st.session_state.holdings[ticker].get("cost_basis", price)
+        if price is None:
+            price = cost_basis if cost_basis > 0 else 0.0
         
         weekly = shares * div
         monthly = weekly * 52 / 12
@@ -175,6 +179,10 @@ def check_price_alerts():
         cost_basis = holding["cost_basis"]
         
         if st.session_state.price_alerts[ticker]["enabled"]:
+            # Skip if we don't have valid data
+            if not price or not cost_basis or cost_basis <= 0:
+                continue
+                
             stop_loss_pct = st.session_state.price_alerts[ticker]["stop_loss_pct"]
             loss_from_basis = ((price / cost_basis) - 1) * 100
             
